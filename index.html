@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <style>
+      table {
+        border-collapse: collapse;
+        border: 2px black solid;
+        font: 12px sans-serif;
+      }
+
+      th, td {
+        border: 1px black solid;
+        padding: 5px;
+      }
+    </style>
+    <script src="https://d3js.org/d3.v5.min.js"></script>
+  </head>
+  <body>
+    <script type="text/javascript"charset="utf-8">
+      const table = d3.select("body").append("table");
+      const thead = table.append("thead");
+      const tbody = table.append("tbody");
+
+      d3.csv("data.csv", function(data, i) {
+        if (i === 0) {
+          const thr = thead.append("tr");
+
+          for (let key in data) {
+            thr.append("th").text(key);
+          }
+        }
+
+        const tr = tbody.append("tr");
+        for (let key in data) {
+          tr.append("td").text(data[key]);
+        }
+      });
+    </script>
+  </body>
+</html>
