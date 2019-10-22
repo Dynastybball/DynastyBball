@@ -3,39 +3,160 @@
   <head>
     <meta charset="utf-8">
     <style>
-      table {
-        border-collapse: collapse;
-        border: 2px black solid;
-        font: 12px sans-serif;
+      body {
+        font-family: sans-serif;
+        background-color: rgba(200, 200, 200, 0.1);
+        color: rgba(42, 42, 42, 0.9);
       }
 
-      th, td {
-        border: 1px black solid;
-        padding: 5px;
+      input:not(:first-of-type) {
+        margin-left: 20px;
+      }
+
+      table {
+        border: 1px solid rgba(42, 42, 42, 0.9);
+      }
+
+      tr:nth-child(even) td {
+        background-color: rgba(200, 200, 200, 0.3);
+      }
+
+      th:not(:last-child),
+      td:not(:last-child) {
+        border-right: 1px solid rgba(42, 42, 42, 0.9);
       }
     </style>
     <script src="https://d3js.org/d3.v5.min.js"></script>
+    <script
+      src="https://code.jquery.com/jquery-3.4.1.min.js"
+      integrity="sha256-CSXorXvZcTkaix6Yvo6HppcZGetbYMGWSFlBw8HfCJo="
+      crossorigin="anonymous"></script>
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.10.20/css/jquery.dataTables.css">
+    <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/1.10.20/js/jquery.dataTables.js"></script>
+
   </head>
   <body>
+    <div id="categories">
+      <h3>Categories to punt</h3>
+    </div>
+    <div id="rankings">
+      <h3>Rankings</h3>
+    </div>
     <script type="text/javascript"charset="utf-8">
-      const table = d3.select("body").append("table");
-      const thead = table.append("thead");
-      const tbody = table.append("tbody");
+      // Data
+      const categories = {
+        "Points": false,
+        "3s": false,
+        "Reb": false,
+        "Asts": false,
+        "Stls": false,
+        "Blks": false,
+        "FG%": false,
+        "FT%": false,
+        "TO": false,
+      };
+      let playersData = [];
+      let dataTable = {}
 
-      d3.csv("data.csv", function(data, i) {
-        if (i === 0) {
-          const thr = thead.append("tr");
 
+      // Functions
+      const addTableHeaders = columns => {
+        const thr = thead.append("tr");
+
+        for (let column of columns) {
+          thr.append("th").text(column);
+        }
+      }
+
+      const populateTable = () => {
+        $("tbody").empty();
+
+        for (let data of playersData) {
+          const tr = tbody.append("tr");
           for (let key in data) {
-            thr.append("th").text(key);
+            tr.append("td").text(data[key]);
           }
         }
 
-        const tr = tbody.append("tr");
-        for (let key in data) {
-          tr.append("td").text(data[key]);
+        dataTable = $("table").DataTable({
+          pageLength: 50
+        });
+      }
+
+      const updatePlayerPuntTotal = player => {
+        let total = 0;
+        let countingCategories = Object.keys(categories).filter(
+          c => categories[c] === false
+        );
+        for (const category of countingCategories) {
+          total += parseInt(player[category]);
         }
+
+        player["Punt Total"] = Math.round(1000 * total/9) /1000;
+      }
+
+      const comparePlayers = (a, b) => {
+        let comparison = 0;
+        if (a["Punt Total"] > b["Punt Total"]) {
+          comparison = 1;
+        } else if (a["Punt Total"] < b["Punt Total"]) {
+          comparison = -1;
+        }
+
+        return comparison;
+      }
+
+      const updatePlayersPuntRanks = () => {
+        const sortedPlayers = [...playersData].sort(comparePlayers);
+        playersData = [];
+        let i = 1;
+        for (let player of sortedPlayers) {
+          const puntRank = i++;
+          const rank = parseInt(player["Rank"]);
+          const changePercent = Math.round(10 * (rank - puntRank) / puntRank * 100) / 10;
+
+          player["Punt Rnk"] = puntRank;
+          player["% Change"] = changePercent + " %";
+          playersData.push(player);
+        }
+      }
+
+      const updateRankings = () => {
+        for (let player of playersData) {
+          updatePlayerPuntTotal(player);
+        }
+
+        updatePlayersPuntRanks();
+        dataTable.clear();
+        dataTable.rows.add(playersData.map(x => Object.values(x)));
+        dataTable.draw();
+      }
+
+
+      // Interactions  
+      $(document).on("change", "[type=checkbox]", event => {
+        const cb = event.target
+        categories[cb.id] = cb.checked
+        updateRankings();
       });
+
+
+      // Do after load
+      for (let category in categories) {
+        const container = $("#categories");
+        $('<input />', { type: 'checkbox', id: category, value: category }).appendTo(container);
+        $('<label />', { 'for': category, text: category }).appendTo(container);
+      }
+
+      const table = d3.select("#rankings").append("table");
+      const thead = table.append("thead");
+      const tbody = table.append("tbody");
+
+      d3.csv("data.csv", data => playersData.push(data))
+        .then(({ columns }) => {
+          addTableHeaders(columns);
+          populateTable();
+        });
     </script>
   </body>
 </html>
